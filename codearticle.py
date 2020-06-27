@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+
 
 
 import keras
@@ -24,11 +24,11 @@ from PIL import Image
 import os, sys
 
 
-# In[2]:
+
 
 
 mpl.rc('image',cmap='gray')
-# Load an color image in grayscale
+# Load an color image in grayscale for simplified(not contaminated) solution of electrostatics capacitor and pre processing image
 simplified = cv2.imread('simplify.png',cv2.IMREAD_GRAYSCALE)
 print(simplified.shape)
 plt.imshow(simplified)
@@ -48,9 +48,8 @@ print(simplified.dtype)
 plt.imshow(simplified[0,...,0])
 
 
-# In[3]:
-
-
+## Load an color images in grayscale for exact(contaminated) solution of electrostatics capacitor and pre-processing images
+#550 exact(contaminated) images were generated using simulation and CAD programs
 mypath=r'C:\Users\merye\images'
 onlyfiles = [ f for f in listdir(mypath) if isfile(join(mypath,f)) ]
 print(len(onlyfiles))
@@ -58,8 +57,6 @@ images = numpy.empty(len(onlyfiles),dtype=object)
 from skimage import io
 for n in range(0, len(onlyfiles)):
     images[n] = cv2.imread(join(mypath,onlyfiles[n]),cv2.IMREAD_GRAYSCALE)
-    
-    #plt.show()
     images[n]=cv2.resize(images[n], (256,256))
     plt.imshow(images[n])
     plt.show()
@@ -69,12 +66,7 @@ for n in range(0, len(onlyfiles)):
     images[n] = skimage.img_as_float(images[n], force_copy=False)  
     images[n] = np.array(images[n], dtype=np.float64)
     images[n] = images[n]/np.max(images[n])
-    
-    
     print(images[0].shape)
-
-
-# In[4]:
 
 
 #reshape the matrix (len,256,256,1)
@@ -84,10 +76,8 @@ print(images.dtype)
 print(len(images))
 print(np.max(images[1]))
 
-
-# In[5]:
-
-
+#taken differences between exact and simplified solution images obtained from Elmer simulation
+#with this way, we obtain first element of data pairs to train the network
 dif=numpy.empty(len(onlyfiles), dtype=object)
 for i in range(0,len(onlyfiles)):
     dif[i]=abs(images[i]-simplified)
@@ -104,16 +94,10 @@ print(dif.shape)
 plt.imshow(dif[1][0,...,0], cmap='gray')
 
 
-# In[6]:
-
-
 dif = np.vstack(dif).astype(np.float64)
 print(dif.dtype)
 print(dif.shape)
 len(dif)
-
-
-# In[7]:
 
 
 plt.figure(figsize=(20,4))
@@ -123,9 +107,8 @@ for i in range(10):
     plt.gray()
 
 
-# In[8]:
-
-
+# shows differences between exact and simplified geometries
+#with this way, we obtain second element of data pairs to train the network
 import numpy
 import numpy as np
 A=6
@@ -169,31 +152,19 @@ print(M.shape)
 print(M[8][M[8] != 0])
 
 
-# In[9]:
-
-
 print(M.shape)
 plt.imshow(M[8,...,0])
 print(M.shape)
 
 
-# In[10]:
-
 
 pip install sklearn
-
-
-# In[11]:
 
 
 #split data as %80 training and %20 testing
 from sklearn.model_selection import train_test_split
 train_E,valid_E,train_T,valid_T= train_test_split(M,dif,
                                                   test_size=0.2,random_state=13)
-
-
-# In[12]:
-
 
 plt.figure(figsize=(20,4))
 print("Input")
@@ -209,9 +180,6 @@ for i in range(10):
     plt.gray()
 
 
-# In[13]:
-
-
 print(len(train_E))
 print(train_E.shape)
 print(train_T.shape)
@@ -219,10 +187,7 @@ print(len(valid_E))
 print(valid_E.shape)
 print(valid_T.shape)
 
-
-# In[14]:
-
-
+#Hyper parameters
 number_epochs = 60
 batch_size = 16
 learning_rate = 0.0001
@@ -232,16 +197,9 @@ in_channel=1
 m,n=256,256
 input_images= Input(shape = (m,n,in_channel))
 
-
-# In[15]:
-
-
 input_images
 
-
-# In[16]:
-
-
+#Convolutional Autoencoder 
 def autoencoder(input_images):
 
 #encoder
@@ -252,18 +210,10 @@ def autoencoder(input_images):
     CA3 = Conv2D(64, (3, 3), activation='relu', padding='same')(MP2)
     MP3 = MaxPooling2D((2, 2), padding='same')(CA3)
     CA4 = Conv2D(32, (3, 3), activation='relu', padding='same')(MP3)
-    #MP4 = MaxPooling2D((2, 2), padding='same')(CA4)
-    #CA5 = Conv2D(16, (3, 3), activation='relu', padding='same')(MP4)
-    #MP5 = MaxPooling2D((2, 2), padding='same')(CA5)
-    #CA6 = Conv2D(4, (3, 3), activation='relu', padding='same')(MP5)
-    #MP6 = MaxPooling2D((2, 2), padding='same')(CA6)
-    #CA7 = Conv2D(4, (3, 3), activation='relu', padding='same')(MP6)
     
     
     encoded = MaxPooling2D((2, 2), padding='same')(CA4)
-    
-#decoder    
-    
+ #decoder
     CA6 = Conv2D(32, (3, 3), activation='relu', padding='same')(encoded)
     UP1 = UpSampling2D((2, 2))(CA6)
     CA7 = Conv2D(64, (3, 3), activation='relu', padding='same')(UP1)
@@ -272,29 +222,15 @@ def autoencoder(input_images):
     UP3 = UpSampling2D((2, 2))(CA8)
     CA9 = Conv2D(256, (3, 3), activation='relu', padding='same')(UP3)
     UP4 = UpSampling2D((2, 2))(CA9)
-    #CA10 = Conv2D(256, (3, 3), activation='relu', padding='same')(UP4)
-    #UP5 = UpSampling2D((2, 2))(CA10)
-    #CA11 = Conv2D(128, (3, 3), activation='relu', padding='same')(UP5)
-    #UP6 = UpSampling2D((2, 2))(CA11)
-    #CA12 = Conv2D(256, (3, 3), activation='relu', padding='same')(UP6)
-    #UP7 = UpSampling2D((2, 2))(CA12)
     decoded = Conv2D(1, (3, 3), activation='sigmoid', padding='same')(UP4)
     return decoded
 #optimization network
 autoencoder = Model(input_images, autoencoder(input_images))
 autoencoder.compile(loss='mean_squared_error', optimizer = 'adam')
-    
-
-
-# In[17]:
-
 
 autoencoder.summary()
 
-
-# In[18]:
-
-
+#increasing amount of training data
 from keras.preprocessing.image import ImageDataGenerator
 # construct the training image generator for data augmentation
 aug = ImageDataGenerator(rotation_range=20,
@@ -305,10 +241,7 @@ aug_E = np.empty((repeats*len(train_E),256,256,1))
 aug_T = np.empty((repeats*len(train_T),256,256,1))
 autoencoder_train = autoencoder.fit(aug_E, aug_T,batch_size=batch_size,epochs=number_epochs,verbose=1,validation_data=(valid_E, valid_T))
 
-
-# In[19]:
-
-
+#training and validation loss graph
 loss = autoencoder_train.history['loss']
 val_loss = autoencoder_train.history['val_loss']
 epochs = range(number_epochs)
@@ -318,14 +251,8 @@ plt.plot(epochs, val_loss, 'b', label='Validation loss')
 plt.legend()
 plt.show()
 
-
-# In[20]:
-
-
+#make a prediction on test images
 prediction = autoencoder.predict(M)
-
-
-# In[21]:
 
 
 plt.figure(figsize=(20,4))
@@ -344,9 +271,6 @@ for i in range(10):
 plt.show()
 
 
-# In[22]:
-
-
 preds_0 = prediction[0]*255
 preds_0 = preds_0.reshape(256,256)
 x_test_0 = M[0]*255
@@ -355,27 +279,8 @@ plt.imshow(x_test_0, cmap='gray')
 plt.gray()
 
 
-# In[23]:
-
 
 plt.imshow(preds_0, cmap='gray')
 plt.gray()
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
 
 
